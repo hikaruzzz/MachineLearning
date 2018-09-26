@@ -1,0 +1,40 @@
+#关键字：numpy矩阵运算，numpy矩阵的取值（[0]),初步调参(学习速度)（1-10次迭代可看出weight的跳跃），batchGradientDescent,
+#思想：简单for循环，可以改为按误差停止循环
+
+import numpy as np
+
+def predict(x,weight,b):
+    #预测模型，参数：训练x、权值weight、截距b return：y值(列向量）
+    #此模型被bGD函数调用，用于计算y值
+    yPre = np.dot(x, weight) + b
+    return yPre
+
+
+def bGD(x,y,weight,b,learnRate,trainN,maxIter):
+    #批量梯度下降，参数：训练集x，y（列向量），学习速度learnRate，样本数trainN(常数），最大迭代maxIter  retrun weight,b
+    #loss =  x[i]*w + b
+
+    for i in range(0,maxIter+1):
+        loss = predict(x,weight,b)-y
+        if i < 10 or not(i%50):
+            print("迭代第", i, " 次，weight值：", weight,"\tb值：",b)
+        gradWeight = np.dot(loss.transpose(),x)[0][0]/trainN
+        gradB = np.mean(predict(x,weight,b) - y)  #此处用b的误差 平均化作为b的梯度
+        weight = weight - (learnRate) * gradWeight
+        b = b - learnRate * gradB
+    return weight,b
+
+trainData = np.array([[1,2,3,4,5,6,7]],dtype=float).transpose()  #训练样本
+trainLabel = np.array([[1,2,3,4,5,6,7]],dtype=float).transpose()  #训练标记
+
+trainN = np.shape(trainData)[0]
+weight = 0.1
+b = 0.1
+learnRate = 0.07
+maxIter = 200
+
+weightbGD,bbGD = bGD(trainData,trainLabel,weight,b,learnRate,trainN,maxIter)
+
+testData = np.array([[9,10,11,12,13,7,8]],dtype=float).transpose() #测试样本
+for i in range(testData.shape[0]):
+    print("测试样本 x = ",testData[i],"预测结果：y = ",predict(testData,weightbGD,bbGD)[i])
