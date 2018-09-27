@@ -1,0 +1,115 @@
+# coding = 'utf-8'
+import numpy as np
+initB = 0.1
+initWeight = 0.1
+learnRate = 0.03
+# 累计BP算法？遍历一次样本，再更新一次参数
+
+class nerual:
+    # 神经元类
+    weight = []
+    b = 0
+    weightSize = 0
+
+    def __init__(self,X):
+        # 初始化，参数X 为np.array（行向量）,self.weight(行向量）
+        # 根据传入X大小初始化weight（数量）（np.array）
+        self.weight = np.array(np.ones([1,X.size]),dtype=float)
+        self.weightSize = X.size
+        for i in range(0,self.weightSize):
+            self.weight[0][i] = initWeight
+            self.b = initB
+
+    def predict(self,X):
+        # 计算输出y值，参数：X(行向量），return：Y（np.array）
+        return np.dot(X,self.weight.transpose())-self.b
+
+    def update(self,learnRate,X,trainY):
+        # 更新公式，参数：trainY（前馈Y值，已去权值），return null
+        yPre = self.predict(X)
+        # 对每个weight更新
+        self.weight = self.weight + learnRate*(yPre*(1-yPre)*(trainY-yPre))*self.b
+        self.b = self.b + learnRate*(yPre*(1-yPre)*(trainY-yPre))
+
+    def yFrontSendW(self,X):
+        # 前传进过 去权值的 y，参数：当前神经元对应上一层所有神经元的接收权值，return yFrontSendW(行向量）
+        yFrontSendW = np.array(np.ones([1,self.weightSize]),dtype=float)
+        for i in range(0,self.weightSize):
+            yFrontSendW[0][i] = X[0][i]/self.weight[0][i]
+
+        return yFrontSendW
+
+class layer:
+    # 神经层
+    nerual = [] # 存储每层的神经元对象
+    inputNum = 0 # 上一层的输入数量
+    nerualNum = 0 # 此层神经元个数
+    X = []
+
+    def __init__(self,nerualNum,X):
+        # 初始化，创建X.size个神经元对象
+        self.inputNum = X.size
+        self.nerualNum = nerualNum
+        self.X = X
+        for i in range(0,self.nerualNum):
+            self.nerual.append(nerual(self.X))
+
+    def outPut(self):
+        # 输出此层的y值（行向量，此层每个神经元的y组成） return：y行向量
+        yOut = np.array(np.ones([1,self.nerualNum]),dtype=float)
+        #print(yOut)
+        for i in range(0,self.nerualNum):
+            yOut[0][i] = self.nerual[i].predict(self.X)
+        return yOut
+
+    def layerUpdate(self,yFront,learnRate):
+        # 更新方法，参数：yFront前层传入的训练样本Label值（行向量，对应本层每个神经元）（需求：已经去掉对应的权值）
+        for i in range(0,self.nerualNum):
+            self.nerual[i].update(learnRate,self.X,yFront[0][i])
+
+    def frontSend(self):
+        # return 经过 去权值的 y值（对应上一层的神经元数量）
+        # 传out层的任意一个input值也可以？
+        yFrontSendW = self.nerual[0].yFrontSendW(X)
+        return yFrontSendW
+
+    def testPredict(self,X):
+        # 用于测试样本
+        yOut = np.array(np.ones([1, self.nerualNum]), dtype=float)
+        # print(yOut)
+        for i in range(0, self.nerualNum):
+            yOut[0][i] = self.nerual[i].predict(X)
+        return yOut
+
+trainX = [[[1,2,3,4]],[[1,2,2,4]],[[2,2,3,1]],[[1,2,1,1]],[[4,4,4,4]]]
+trainY = [[[1,0]],[[1,0]],[[0,1]],[[0,1]],[[1,0]]]
+for aa in range(5):
+    X = np.array(trainX[aa],dtype=float)
+    layerFirst = layer(4,X)
+    #print(layerFirst.outPut()) # 显示[[0.9 0.9 0.9 0.9]]，初始状态，每个神经元输出都一样
+
+    layerOut = layer(2,layerFirst.outPut()) # 输出层的输出值
+    layerOutY = layerOut.outPut()
+    #print(layerOut.outPut())
+
+    maxIter = 800
+    # Train 过程
+    sendY = np.array(trainY[aa],dtype=float)
+    for i in range(maxIter):
+        layerOut.layerUpdate(sendY,learnRate)
+        frontSendW = layerOut.frontSend()
+        layerFirst.layerUpdate(frontSendW,learnRate)
+
+
+    print(layerOut.outPut())
+
+# test 过程
+testX = np.array([[1,2,2,3]],dtype=float)
+firstLayerPre = layerFirst.testPredict(testX)
+#print(layerFirst.testPredict(testX))
+secondLayerPre = layerOut.testPredict(firstLayerPre)
+print(secondLayerPre)
+
+
+
+
