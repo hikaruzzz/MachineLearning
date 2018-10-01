@@ -1,0 +1,138 @@
+# coding = 'utf-8'
+import numpy as np
+import matplotlib.pyplot as plt
+import sklearn
+import sklearn.datasets
+import test1
+
+def setLayer(trainX,trainY,hideNum):
+    xNum = trainX.shape[0]
+    hideNum = hideNum
+    yNum = trainY.shape[0]
+
+    return (xNum,hideNum,yNum)
+
+def initParas(xNum,hideNum,yNum):
+
+    w1 = np.ones([hideNum,xNum],dtype=float)*0.01
+    b1 = np.zeros([hideNum,1],dtype=float)
+    w2 = np.ones([yNum,hideNum],dtype=float)*0.01
+    b2 = np.zeros([yNum,1],dtype=float)
+
+    paras = {"w1":w1,
+             "b1":b1,
+             "w2":w2,
+             "b2":b2}
+
+    return paras
+
+
+def train(trainX,trainY,paras,maxIter,learnRate):
+    w1 = paras["w1"]
+    b1 = paras["b1"]
+    w2 = paras["w2"]
+    b2 = paras["b2"]
+
+    m = trainX.shape[1]
+
+    hideOut = []
+    yPre = []
+
+    for i in range(0,maxIter):
+        # forward propagation
+        hideOut = calcTanh(np.dot(w1,trainX)+b1)
+        yPre = calcSigmoid(np.dot(w2,hideOut)+b2)
+
+        # backward propagation
+        loss2 = yPre - trainY
+        gradW2 = np.dot(loss2,hideOut.transpose())/m
+        gradB2 = np.sum(loss2,axis = 1,keepdims=True)/m
+        loss1 = np.dot(w2.transpose(),loss2)*(1 - np.power(hideOut,2))
+        gradW1 = np.dot(loss1,trainX.transpose())/m
+        gradB1 = np.sum(loss1,axis=1,keepdims=True)/m
+
+        # for test
+
+        # update paras
+        w2 += learnRate*gradW2
+        b2 += learnRate*gradB2
+        w1 += learnRate*gradW1
+        b1 += learnRate*gradB1
+
+        gradParas = {"gradW2":gradW2,
+                     "gradB2":gradB2,
+                     "gradW1":gradW1,
+                     "gradB1":gradB1}
+
+        paras = {"w1": w1,
+                 "b1": b1,
+                 "w2": w2,
+                 "b2": b2}
+
+    return paras
+
+
+def predict(testX,paras):
+    w1 = paras["w1"]
+    b1 = paras["b1"]
+    w2 = paras["w2"]
+    b2 = paras["b2"]
+    hideOut = calcTanh(np.dot(w1, testX) + b1)
+    yPre = calcSigmoid(np.dot(w2, hideOut) + b2)
+
+    for i in range(0,testX.shape[1]):
+        if yPre[0][i] >0.5:
+            yPre[0][i] = 1
+        else:
+            yPre[0][i] = 0
+
+    return yPre
+
+
+def calcTanh(x):
+    return np.tanh(x)
+
+
+def calcTanhPrime(x):
+    return 0
+
+
+def calcSigmoid(x):
+    return 1/(1+np.exp(-x))
+
+
+def calcSigmoidPrime(x):
+    return calcSigmoid(x)-np.power(calcSigmoid(x),2)
+
+def testData1():
+    N = 200
+    data,label = sklearn.datasets.make_blobs(n_samples=N, random_state=5, n_features=2, cluster_std=[1.0,3.0],centers=2)
+    plt.scatter(data[:,1],data[:,0],c=label)
+    print(label)
+    trainX = data.transpose()
+    trainY = label
+
+
+x,y = test1.load_planar_dataset()
+plt.scatter(x[1],x[0],c=y[0])
+trainX = x
+trainY = y
+
+hideNum = 4
+maxIter = 1000
+learnRate = 0.07
+
+xNum,hideNum,yNum = setLayer(trainX,trainY,hideNum)
+paras = initParas(xNum,hideNum,yNum)
+#print(paras)
+paras = train(trainX,trainY,paras,maxIter=maxIter,learnRate=learnRate)
+#print("new\n",paras)
+testY = predict(trainX,paras)
+print("1",trainX.shape)
+print("2",testY.shape)
+print("weight1,",paras["w1"])
+
+plt.scatter(trainX[1],trainX[0],c = testY[0])
+plt.title("iter = "+str(maxIter)+"  learnRate = "+str(learnRate))
+plt.show()
+#print("testLabel:",testY)
