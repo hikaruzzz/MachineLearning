@@ -1,0 +1,199 @@
+'''
+bp_nn v3.0
+解决问题：weight值 初始值必须非相等， forward中 wx + b(not -b)， updata中 w = w - Rate* dw(not w = Rate*(w-dw)
+
+point：不同weight初始值，拟合情况不一样（涉及调参？）
+'''
+
+# coding = 'utf-8'
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import datasets
+
+class BP_NN:
+    def __init__(self,hideLNum,learn_rate,maxIter):
+        # 初始化，隐层神经元数可变，输出层一个神经元
+        # para: inputN,hideN,outN  return: paras(各参数值weightHideL,weightOutL,bHideL,bOutL(列向量））
+
+        self.hideLayerNum = hideLNum
+        self.weightInit = 0.01 # 权值初始化乘值
+        self.maxIter = maxIter
+        self.learnRate = learn_rate
+
+        self.weightHideL = 0
+        self.bHideL = 0
+        self.weightOutL = np.array([])
+        self.bOutL = 0
+
+
+    def __initParas(self,trainX,trainY):
+        # 初始化权值weight，阈值b
+        inputL_N,hideL_N,outL_N = self.__setLayer(trainX,trainY)
+        self.weightHideL = np.random.random([hideL_N,inputL_N]) * self.weightInit  # 初始权值=0.01
+        self.bHideL = np.zeros([hideL_N, 1], dtype=float)  # 隐层神经元阈值 （列向量数组)
+        self.weightOutL = np.random.random([outL_N, hideL_N]) * self.weightInit  # 权值矩阵（[0,0~hideN]是指第1个本层神经元的传入权值数组）
+        self.bOutL = np.zeros([outL_N, 1], dtype=float)  # 输出层神经元阈值
+
+
+    def  __setLayer(self,trainX,trainY):
+        # 设定隐层，输入层，输出层神经元个数(由initparas自调用）
+        # para: trainX（列向量为每组样本的各x值） , trainY(列向量)  return: inputL_N,hideL_N,outL_N(各层个数）
+        inputL_N = trainX.shape[0]
+        hideL_N = self.hideLayerNum
+        outL_N = trainY.shape[0]
+
+        return inputL_N,hideL_N,outL_N
+
+
+    def __forward_propagation(self,trainX):
+        # 按trainX，当前参数，计算，得出yPre值
+        # para: trainX(训练样本，[0~trainX.shape[0],0]为第一组样本的各x）
+        # return: (各层计算值）
+
+        # 计算值
+        z1 = np.dot(self.weightHideL,trainX) + self.bHideL # 相乘矩阵=（本层神经元个数*样本数）
+        #print("weightHideL.shape",weightHideL.shape," bhHideL",bHideL)
+        a1 = self.calc_sigmoid(z1) # 隐层的激活函数
+
+        z2 = np.dot(self.weightOutL,a1) + self.bOutL # 输出层输出结果（n维【输出层cell数】行向量，行数=样本总数）
+        a2 = self.calc_sigmoid(z2) # yPre(与calcOutL格式一致）
+
+        return z1,a1,z2,a2
+
+
+    def predict(self,trainX):
+        z1,a1,z2,a2 = self.__forward_propagation(trainX)
+        return a2
+
+
+    def calc_sigmoid(self,y):
+        # sigmoid函数
+        # return 格式相同
+        y = 1.0 / (1 + np.exp(-y))
+        return y
+
+    def calc_sigmoid_prime(self,y):
+        #y = calc_sigmoid(y)*(1 - calc_sigmoid(y))
+        return y
+
+    def calc_tanh(self,y):
+        # 隐层神经元的激活函数(用tanh函数代替sigmoid函数，减少求导计算量，加快收敛速度）
+        # return: 函数计算结果，input output 的shape一样
+        y = np.tanh(y)
+        return y
+
+    def calc_tanh_prime(self,y):
+        # tanh的导数 f' = 1- f^2
+        #y = 1 - pow(calc_tanh(y),2)
+        return y
+
+    def calc_loss(yPre,trainY,paras):
+        # 用于计算误差，print当前误差
+        # para: yPre(预测值），trainY(样本Label），paras（参数组）
+        pass
+
+
+    def readCurrentWeight(self):
+
+        return self.weightHideL,self.weightOutL
+
+    def initParas_custom(self,weightHide,weightOut):
+        self.weightHideL = weightHide
+        self.weightOutL = weightOut
+        self.bHideL = np.zeros([4, 1], dtype=float)  # 隐层神经元阈值 （列向量数组)
+        self.bOutL = np.zeros([1, 1], dtype=float)  # 输出层神经元阈值
+
+
+    def fit(self,trainX,trainY,isDefaultParas=True):
+        # 训练函数，调用:__initParas,__frowardprogration,__bGD,__updatepara
+        if isDefaultParas == True:
+            self.__initParas(trainX,trainY)
+        print("weight_H_1",self.weightHideL)
+        # 记录初始weight值
+        writeData = "\n===evalue:\nhideN=4,learnRate=0.01,maxIter=5000\nweightHide:" + str(self.weightHideL) + "\nweightOut:" + str(self.weightOutL)
+        open("./bpNN_weightRecord.txt", "a").write(writeData)
+        # train
+        for i in range(self.maxIter):
+            z1,a1,z2,a2 = self.__forward_propagation(trainX)
+            dw2,db2,dw1,db1 = self.__bGD(z1,a1,z2,a2,trainX,trainY)
+            self.__update_para(dw2,db2,dw1,db1)
+        print("weight_H_2",self.weightHideL)
+
+
+    def __bGD(self,z1,a1,z2,a2,trainX,trainY):
+        # 批量梯度下降算法
+        # para: z1,a1,z2,a2(参数组)
+        # return: dw2,db2,dw1,db1 各参数的梯度值(与原参数格式一样）
+        dz2 = a2 - trainY
+        dw2 = np.dot(dz2,a1.transpose())
+        db2 = np.sum(dz2,axis=1).reshape(1,1)
+
+        da1 = np.dot(self.weightOutL.transpose(),dz2)
+        dz1 = da1 * (a1 - np.power(a1,2))
+        dw1 = np.dot(dz1,trainX.transpose())
+        db1 = np.sum(dz1,axis=1).reshape(self.hideLayerNum,1)
+        ##################### unresolved attribute...未加载initPara所以报错，忽视v
+
+        return dw2,db2,dw1,db1
+
+
+    def __update_para(self,dw2,db2,dw1,db1):
+        # 更新函数
+        # para: gradParas(传入梯度参数），paras（参数组），learnRate(学习速度）
+        # return paras(更新后参数组）
+
+        learnRate = self.learnRate
+        self.weightHideL -= learnRate * dw1
+        self.bHideL -= learnRate * db1
+        self.weightOutL -= learnRate * dw2
+        self.bOutL -= learnRate * db2
+
+    def show2D(self,trainX,trainY,isShowTrainX):
+        # matlplot 显示，输入trainX，trainY 画训练集点，用已fit模型predict出z值
+        h = 0.01
+
+        xMin = trainX.min()
+        xMax = trainX.max()
+        X1 = np.arange(xMin,xMax,h) # 二维trainX，每一维生成m个点
+        xx,yy = np.meshgrid(X1,X1) # 合成密集点表
+        Z = np.floor(self.predict(np.c_[xx.ravel(), yy.ravel()].T) * 1.99999) #floor向0取整，np.c_按列合并矩阵,ravel转成1维
+        # like: x1&(y1-yn),x2&(y1-yn)..,xn&(y1-yn)
+        Z = Z.reshape(xx.shape)
+
+        plt.figure(1)
+        plt.contourf(xx, yy, Z)
+        if isShowTrainX == True:
+            plt.scatter(trainX[0, :], trainX[1, :], c=trainY[0])
+        plt.show()
+
+def test1():
+    trainX = np.array([[1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9]],dtype=float)
+    trainY = np.array([[1,1,1,1,0,0,0,0,0]],dtype=float)
+
+    bpNN = BP_NN(4,0.01,5000)
+    bpNN.fit(trainX,trainY)
+    print("predictY",bpNN.predict(trainX))
+    bpNN.show2D(trainX,trainY,isShowTrainX=1)
+
+def test2():
+    # 用sklearn.datasets.make_moons制造的训练集
+    trainX,trainY = datasets.make_moons(200,noise=0.2)
+    trainX = np.array(trainX).transpose()
+    trainY = np.array([trainY])
+
+    weightHide_init = np.array([[0.00669191, 0.00896449],
+ [0.00817253, 0.00233414],
+ [0.00669449 ,0.00221617],
+ [0.0025208 , 0.00445341]])
+    weightOut_init = np.array([[0.00432226 ,0.00170128 ,0.00424311, 0.00309716]])
+
+    # train
+    bpNN = BP_NN(hideLNum=4,learn_rate=0.01,maxIter=5000)
+
+    bpNN.initParas_custom(weightHide_init,weightOut_init) # isDefaultParas=True时，不需此条
+    bpNN.fit(trainX,trainY,isDefaultParas=False)
+    bpNN.show2D(trainX,trainY,isShowTrainX = 1)
+
+
+test2()
+
