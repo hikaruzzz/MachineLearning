@@ -1,0 +1,28 @@
+# 关键字：评估模块。每个训练模型自带score方法
+
+from sklearn.metrics import classification_report
+
+# score
+print("Accuracy of svc:", lsvc.score(testX,testY))
+print("classification report:\n", classification_report(testY,yPre))
+
+''' 示例：
+Accuracy of svc: 0.9533333333333334
+classification report:               
+                precision    recall  f1-score   support
+
+           0       0.92      1.00      0.96        35
+           1       0.96      0.98      0.97        54
+           2       0.98      1.00      0.99        44
+           3       0.93      0.93      0.93        46
+           4       0.97      1.00      0.99        35
+           5       0.94      0.94      0.94        48
+           6       0.96      0.98      0.97        51
+           7       0.92      1.00      0.96        35
+           8       0.98      0.84      0.91        58
+           9       0.95      0.91      0.93        44
+
+   micro avg       0.95      0.95      0.95       450
+   macro avg       0.95      0.96      0.95       450
+weighted avg       0.95      0.95      0.95       450
+'''
