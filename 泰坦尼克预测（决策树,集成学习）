@@ -1,0 +1,47 @@
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import classification_report
+import pandas as pd
+
+# 读取数据
+titanic = pd.read_csv('http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/titanic.txt')
+
+# 选取训练特征
+X = titanic[['pclass','age','sex']]
+y = titanic['survived']
+
+# 填补缺失值(用均值，减少影响）
+X['age'].fillna(X['age'].mean(),inplace=True)
+
+# 分割样本
+trainX,testX,trainY,testY = train_test_split(X,y,test_size=0.25,random_state=33)
+
+# 类别型 特征转换成 特征向量 ，归一化
+vec = DictVectorizer(sparse=False)
+trainX = vec.fit_transform(trainX.to_dict(orient='record'))
+testX = vec.transform(testX.to_dict(orient = 'record'))
+
+# 决策树fit，predict
+dtc = DecisionTreeClassifier()
+dtc.fit(trainX,trainY)
+dtc_preY = dtc.predict(testX)
+
+# 随机森林fit，predict
+rfc = RandomForestClassifier()
+rfc.fit(trainX,trainY)
+rfc_preY = rfc.predict(testX)
+
+# 梯度提升 决策树
+gbc = GradientBoostingClassifier()
+gbc.fit(trainX,trainY)
+gbc_preY = gbc.predict(testX)
+
+# score,report
+print("dtc score:",dtc.score())
+print("rfc score:",rfc.score())
+print("gbc score:",gbc.score())
+
+
