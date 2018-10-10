@@ -1,0 +1,63 @@
+# 关键字：矩阵（图像像素）归一化，反归一化。图片像素 与 矩阵数据 互换。手工测试图导入，用模型predict
+
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split # 新版本的数据分割调用方法
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.image
+
+
+digits = load_digits()  # 源代码：.data[n]（拉成一维的数据），.images[n](图像矩阵），target(Label）
+print("手写字体：个数，矩阵像素(8x8)",digits.data.shape)
+
+# 把2D像素矩阵逐行首尾拼接为1D像素特征（丢失数据的结构性）
+trainX,testX,trainY,testY = train_test_split(digits.data,digits.target,test_size=0.25,random_state=33) # 分割训练测试集
+
+# 归一化过程
+ss = StandardScaler()  # 数据标准化模块
+print("原始数据",trainX[1])
+trainX = ss.fit_transform(trainX)  # 归一化 + fit（此fit非拟合，只是sklearn处理数据的必要环节）
+print("归一化数据",trainX[1])
+print("反归一化",ss.inverse_transform(trainX[1]).astype(int))  # 反归一化（看源码）
+
+testX = ss.transform(testX)  # 找中心和缩放等实现归一化
+
+# show
+#plt.gray()
+#plt.matshow(digits.images[2])
+
+# train
+lsvc = LinearSVC()
+lsvc.fit(trainX,trainY)
+
+dataTest = np.array([trainX[2]]).reshape(8,8)
+
+def predictTest():
+    # 预测某个图的Label
+    yPre = lsvc.predict(np.array([testX[3]]))
+    plt.gray()
+    plt.matshow(np.array(ss.inverse_transform(testX[3])).reshape(8,8))
+    print("yPre  ",yPre)
+
+
+def costomTest(testImg):
+    # 图像像素 转 矩阵数据（矩阵转图在上面，plt.matshow)
+    def rgb2grayTest(rgb):
+        # rgb 转 gray
+        return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
+
+    # 一个手工测试图 的读取，predict过程
+    im = matplotlib.image.imread(testImg)  # retrun  shape（m,n,3)
+    gray = rgb2grayTest(im) # 灰度图矩阵
+
+    yPre = lsvc.predict(gray.reshape(1,64))
+    plt.gray()
+    plt.matshow(gray)
+    plt.title("predictNum = "+str(yPre))
+    #print("predict:",yPre)
+    plt.show() 
+
+imgTest = './testNumImage.png'
+costomTest(imgTest)
