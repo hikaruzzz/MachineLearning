@@ -1,0 +1,74 @@
+# 关键字：reshape(-1,1)【n行列】。
+# sklearn随机梯度下降回归，自做bGD线性回归
+
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import SGDRegressor
+from sklearn.metrics import r2_score,mean_squared_error,mean_absolute_error
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+def show2D(object,isShowTrainX=True):
+    # matlplot 显示，输入trainX，trainY 画训练集点，用已fit模型predict出z值
+    h = 0.01
+
+    xMin = -5
+    xMax = 6
+    X1 = np.arange(xMin, xMax, h)  # 二维trainX，每一维生成m个点
+    xx, yy = np.meshgrid(X1, X1)  # 合成密集点表
+    print("shape",np.c_[xx.ravel(), yy.ravel()].T.shape)
+    Z = np.floor(object.predict(np.c_[xx.ravel(), yy.ravel()]) * 1.99999)  # floor向0取整，np.c_按列合并矩阵,ravel转成1维
+    # like: x1&(y1-yn),x2&(y1-yn)..,xn&(y1-yn)
+    Z = Z.reshape(xx.shape)
+
+    plt.figure(1)
+    plt.contourf(xx, yy, Z)
+
+    plt.show()
+
+
+boston = load_boston()
+#print(boston.DESCR)
+
+X = boston.data
+y = boston.target
+print(X.shape)
+trainX,testX,trainY,testY = train_test_split(X,y,random_state=33,test_size=0.25)
+
+print("max target",np.max(boston.target))
+print("avg target",np.mean(boston.target))
+
+# regular
+ss = StandardScaler()
+trainX = ss.fit_transform(trainX)
+testX = ss.transform(testX)
+
+# target的差异较大，需要对目标值标准化
+ss_y = StandardScaler()
+trainY = ss_y.fit_transform(np.array([trainY]).reshape(-1,1))
+testY = ss_y.transform(np.array([testY]).reshape(-1,1))
+
+
+# fit linear
+lr = LinearRegression()
+#print("trainY",trainY)
+lr.fit(trainX,trainY)
+lr_preY = lr.predict(testX)
+
+# fit SGDr
+sgdr = SGDRegressor()
+sgdr.fit(trainX,trainY)
+sgdr_preY = lr.predict(testX)
+
+
+# score，report (评估模型，平均绝对误差，均方误差）
+print("lr.socre",lr.score(testX,testY))
+r2_score_msg = r2_score(testY,lr_preY)
+mean_absolute_error_msg = mean_absolute_error(ss_y.inverse_transform(testY),ss_y.inverse_transform(lr_preY))
+mean_squared_error_msg = mean_squared_error(ss_y.inverse_transform(testY),ss_y.inverse_transform(lr_preY))
+print(r2_score_msg)
+print(mean_squared_error_msg)
+print(mean_absolute_error_msg)
