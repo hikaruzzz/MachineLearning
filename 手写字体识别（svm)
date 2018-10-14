@@ -1,4 +1,4 @@
-# 关键字：矩阵（图像像素）归一化，反归一化。图片像素 与 矩阵数据 互换。手工测试图导入，用模型predict。三维数组dot乘
+# 关键字：矩阵（图像像素）归一化，反归一化。图片像素 与 矩阵数据 互换。手工测试图导入，用模型predict。三维数组dot乘。matplotlib图片读取。
 
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split # 新版本的数据分割调用方法
