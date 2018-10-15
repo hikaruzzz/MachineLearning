@@ -1,7 +1,9 @@
 '''
-bp_nn v3.0
+bp_nn v3.1 2018年10月15日
 解决问题：weight值 初始值必须非相等。forward中 wx + b(not -b)。updata中 w = w - Rate* dw(not w = Rate*(w-dw))。后传过程主要问题：矩阵求导及激活函数选择
 point：不同weight初始值，拟合情况不一样（涉及调参？）,激活函数均为sigmoid()可尝试隐层用tanh()
+
+new add:与sklearn.SGDClassifier（SVM）模型 分类准确率对比
 '''
 
 # coding = 'utf-8'
