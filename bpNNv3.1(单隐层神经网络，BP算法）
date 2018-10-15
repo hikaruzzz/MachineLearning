@@ -1,14 +1,16 @@
 '''
 bp_nn v3.0
-解决问题：weight值 初始值必须非相等， forward中 wx + b(not -b)， updata中 w = w - Rate* dw(not w = Rate*(w-dw)
-
-point：不同weight初始值，拟合情况不一样（涉及调参？）
+解决问题：weight值 初始值必须非相等。forward中 wx + b(not -b)。updata中 w = w - Rate* dw(not w = Rate*(w-dw))。后传过程主要问题：矩阵求导及激活函数选择
+point：不同weight初始值，拟合情况不一样（涉及调参？）,激活函数均为sigmoid()可尝试隐层用tanh()
 '''
 
 # coding = 'utf-8'
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import datasets
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import SGDClassifier
+
 
 class BP_NN:
     def __init__(self,hideLNum,learn_rate,maxIter):
@@ -72,9 +74,11 @@ class BP_NN:
         y = 1.0 / (1 + np.exp(-y))
         return y
 
+
     def calc_sigmoid_prime(self,y):
         #y = calc_sigmoid(y)*(1 - calc_sigmoid(y))
         return y
+
 
     def calc_tanh(self,y):
         # 隐层神经元的激活函数(用tanh函数代替sigmoid函数，减少求导计算量，加快收敛速度）
@@ -82,20 +86,37 @@ class BP_NN:
         y = np.tanh(y)
         return y
 
+
     def calc_tanh_prime(self,y):
         # tanh的导数 f' = 1- f^2
         #y = 1 - pow(calc_tanh(y),2)
         return y
 
-    def calc_loss(yPre,trainY,paras):
-        # 用于计算误差，print当前误差
-        # para: yPre(预测值），trainY(样本Label），paras（参数组）
-        pass
+
+    def score(self,testX,testY):
+        # 用于计算accuracy
+        # para: testX(shape=(dim,m)),testY(shape=(1,m))
+        # return：score
+        m = testX.shape[1]
+        coutR = 0. # 统计正确个数
+        preY = self.predict(testX)
+        for i in range(m):
+            if preY[0][i] < 0.5:
+                preY[0][i] = 0
+            else:
+                preY[0][i] = 1
+
+        for i in range(m):
+            if preY[0][i] == testY[0][i]:
+                coutR += 1
+
+        return coutR/m
 
 
     def readCurrentWeight(self):
 
         return self.weightHideL,self.weightOutL
+
 
     def initParas_custom(self,weightHide,weightOut):
         self.weightHideL = weightHide
@@ -104,9 +125,11 @@ class BP_NN:
         self.bOutL = np.zeros([1, 1], dtype=float)  # 输出层神经元阈值
 
 
-    def fit(self,trainX,trainY,isDefaultParas=True):
+    def fit(self,trainX,trainY,isRandomParas=True):
         # 训练函数，调用:__initParas,__frowardprogration,__bGD,__updatepara
-        if isDefaultParas == True:
+        # 注意 trainX.shape = (样本数，特征数），trainY.shape = （样本数，1）
+
+        if isRandomParas == True:
             self.__initParas(trainX,trainY)
         print("weight_H_1",self.weightHideL)
         # 记录初始weight值
@@ -126,12 +149,12 @@ class BP_NN:
         # return: dw2,db2,dw1,db1 各参数的梯度值(与原参数格式一样）
         dz2 = a2 - trainY
         dw2 = np.dot(dz2,a1.transpose())
-        db2 = np.sum(dz2,axis=1).reshape(1,1)
+        db2 = np.sum(dz2,axis=1,keepdims=True)
 
         da1 = np.dot(self.weightOutL.transpose(),dz2)
         dz1 = da1 * (a1 - np.power(a1,2))
         dw1 = np.dot(dz1,trainX.transpose())
-        db1 = np.sum(dz1,axis=1).reshape(self.hideLayerNum,1)
+        db1 = np.sum(dz1,axis=1,keepdims=True)
         ##################### unresolved attribute...未加载initPara所以报错，忽视v
 
         return dw2,db2,dw1,db1
@@ -174,10 +197,13 @@ def test1():
     bpNN.fit(trainX,trainY)
     print("predictY",bpNN.predict(trainX))
     bpNN.show2D(trainX,trainY,isShowTrainX=1)
+    print("accuracy:",bpNN.score(trainX,trainY))
 
-def test2():
+def test2(trainX,trainY):
     # 用sklearn.datasets.make_moons制造的训练集
-    trainX,trainY = datasets.make_moons(200,noise=0.2)
+    #trainX,trainY = datasets.make_moons(200,noise=0.2)
+
+    #trainX,trainY = open('./make_moons_Data.txt','r').read()
     trainX = np.array(trainX).transpose()
     trainY = np.array([trainY])
 
@@ -191,9 +217,32 @@ def test2():
     bpNN = BP_NN(hideLNum=4,learn_rate=0.01,maxIter=5000)
 
     bpNN.initParas_custom(weightHide_init,weightOut_init) # isDefaultParas=True时，不需此条
-    bpNN.fit(trainX,trainY,isDefaultParas=False)
+    bpNN.fit(trainX,trainY,isRandomParas=False)
+
+    # score
+    print("accuracy:",bpNN.score(trainX,trainY))
+
+    # show
     bpNN.show2D(trainX,trainY,isShowTrainX = 1)
 
 
-test2()
+def test3(trainX,trainY):
+    # 用sklearn.SGDclasser train
+    # 用sklearn.datasets.make_moons制造的训练集
+    #trainX, trainY = datasets.make_moons(200, noise=0.2) # 自带标准化数据
+    #print(trainX.shape)
+    # 标准化
+    ssX = StandardScaler()
+    trainX = ssX.fit_transform(trainX)
+
+    # fit
+    sgdC = SGDClassifier()  # SVM，logistic regression
+    sgdC.fit(trainX,trainY)  # sklearn的fit需要Y为列向量，X为行向量shape（样本数，特征数）
+    print("accuracy:",sgdC.score(trainX,trainY))
+
+
+# make trainData
+trainX, trainY = datasets.make_moons(200, noise=0.2) # 自带标准化数据
+test2(trainX,trainY)  # 拟合率 0.98
+test3(trainX,trainY)  # 拟合率 0.865
 
