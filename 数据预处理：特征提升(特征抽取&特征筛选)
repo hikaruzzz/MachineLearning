@@ -1,0 +1,87 @@
+# 关键字：  数据预处理：特征提升：1.特征抽取。2.特征筛选
+#
+
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import cross_val_score
+from sklearn import feature_selection
+import numpy as np
+
+'''
+
+1. 《特征提取》  ==================================
+
+'''
+'''文本 特征向量 化'''
+
+measurements=[{'city':'Dubai','temperature':33.},{'city':'London','temperature':12.},{'city':'San Fransisco','temperature':18.}]
+vec = DictVectorizer() # ‘城市’非线性，用转化成多维（一个城市名1维），温度是数字(线性），一维
+print("vec:",vec.fit_transform(measurements).toarray())
+print(vec.get_feature_names())
+'''
+[[ 1.  0.  0. 33.]
+ [ 0.  1.  0. 12.]
+ [ 0.  0.  1. 18.]]
+ ['city=Dubai', 'city=London', 'city=San Fransisco', 'temperature']
+ '''
+
+# make trainData
+news = fetch_20newsgroups(subset='all')
+# split data
+trainX,testX,trainY,testY = train_test_split(news.data,news.target,test_size=0.25,random_state=33)
+
+# trainData preprocess
+model = 3
+if model == 1:
+    '''CountVectorizer 进行特征量化（基于词频统计）'''
+    vec = CountVectorizer()
+    trainX = vec.fit_transform(trainX)
+    testX = vec.transform(testX)
+elif model == 2:
+    '''TfidfVectorizer 进行特征量化（文本转化为特征向量）'''
+    tfidf_vec = TfidfVectorizer()
+    trainX = tfidf_vec.fit_transform(trainX)
+    testX = tfidf_vec.transform(testX)
+elif model == 3:
+    '''TfidfVectorizer 特征量化 + 去掉停用词'''
+    tfidf_filter_vec = TfidfVectorizer(analyzer='word',stop_words='english')
+    trainX = tfidf_filter_vec.fit_transform(trainX)
+    testX = tfidf_filter_vec.transform(testX)
+'''
+accuracy对比：0.82 -》 0.84 -》 0.88
+'''
+
+# naive bayes Classifer
+mnb = MultinomialNB()
+mnb.fit(trainX,trainY)
+print("accuray:",mnb.score(testX,testY))
+
+# classification report
+preY = mnb.predict(testX)
+print(classification_report(testY,preY,target_names=news.target_names))
+
+'''
+
+2. 《特征筛选》  ==================================
+
+'''
+# 去除冗余特征
+# 与PCA的区别：PCA通过选择主成分对特征进行重建，导致无法解释重建后的特征。特征筛选不涉及特征值修改（寻找对性能提升大的特征）
+
+# trainData preprocess
+'''直接丢掉 冗余特征'''
+trainY = titanic['survived']
+trainX = titanic.dorp(['row.names','name','survived'],axix =1 )
+
+'''通过交叉验证，按固定间隔的百分百筛选特征（前7%前14%...)，按找最佳性能的特征筛选百分百'''
+precent = range(1,100,2)
+result = []
+for i in precent:
+    fs = feature_selection.SelectPercentile(feature_selection.chi2,percentile=i)
+    trainX = fs.fit_transform(trainX,trainY)
+    
