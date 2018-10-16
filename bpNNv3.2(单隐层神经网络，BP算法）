@@ -1,9 +1,9 @@
 '''
-bp_nn v3.1 2018年10月15日
+bp_nn v3.2 2018年10月16日
 解决问题：weight值 初始值必须非相等。forward中 wx + b(not -b)。updata中 w = w - Rate* dw(not w = Rate*(w-dw))。后传过程主要问题：矩阵求导及激活函数选择
 point：不同weight初始值，拟合情况不一样（涉及调参？）,激活函数均为sigmoid()可尝试隐层用tanh()
-
 new add:与sklearn.SGDClassifier（SVM）模型 分类准确率对比
+        调整trainX，trainY 格式shape=(m,dim)
 '''
 
 # coding = 'utf-8'
@@ -66,6 +66,7 @@ class BP_NN:
 
 
     def predict(self,trainX):
+        trainX = trainX.transpose()
         z1,a1,z2,a2 = self.__forward_propagation(trainX)
         return a2
 
@@ -96,10 +97,13 @@ class BP_NN:
 
 
     def score(self,testX,testY):
+        #
+        testY = testY.transpose()
+
         # 用于计算accuracy
         # para: testX(shape=(dim,m)),testY(shape=(1,m))
         # return：score
-        m = testX.shape[1]
+        m = testX.shape[0]
         coutR = 0. # 统计正确个数
         preY = self.predict(testX)
         for i in range(m):
@@ -131,12 +135,18 @@ class BP_NN:
         # 训练函数，调用:__initParas,__frowardprogration,__bGD,__updatepara
         # 注意 trainX.shape = (样本数，特征数），trainY.shape = （样本数，1）
 
+        # 转换成（dim,m）
+        trainX = trainX.transpose()
+        trainY = trainY.transpose()
+
+        # 是否随机初始化para
         if isRandomParas == True:
             self.__initParas(trainX,trainY)
-        print("weight_H_1",self.weightHideL)
-        # 记录初始weight值
+
+        print("weight_H_1",self.weightHideL)  # 记录初始weight值
         writeData = "\n===evalue:\nhideN=4,learnRate=0.01,maxIter=5000\nweightHide:" + str(self.weightHideL) + "\nweightOut:" + str(self.weightOutL)
-        open("./bpNN_weightRecord.txt", "a").write(writeData)
+        open("./bpNN_weightRecord.txt", "a").write(writeData)  # 写入文件
+
         # train
         for i in range(self.maxIter):
             z1,a1,z2,a2 = self.__forward_propagation(trainX)
@@ -177,11 +187,14 @@ class BP_NN:
         # matlplot 显示，输入trainX，trainY 画训练集点，用已fit模型predict出z值
         h = 0.01
 
+        trainX = trainX.transpose()
+        trainY = trainY.transpose()
+
         xMin = trainX.min()
         xMax = trainX.max()
         X1 = np.arange(xMin,xMax,h) # 二维trainX，每一维生成m个点
         xx,yy = np.meshgrid(X1,X1) # 合成密集点表
-        Z = np.floor(self.predict(np.c_[xx.ravel(), yy.ravel()].T) * 1.99999) #floor向0取整，np.c_按列合并矩阵,ravel转成1维
+        Z = np.floor(self.predict(np.c_[xx.ravel(), yy.ravel()]) * 1.99999) #floor向0取整，np.c_按列合并矩阵,ravel转成1维
         # like: x1&(y1-yn),x2&(y1-yn)..,xn&(y1-yn)
         Z = Z.reshape(xx.shape)
 
@@ -192,8 +205,8 @@ class BP_NN:
         plt.show()
 
 def test1():
-    trainX = np.array([[1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9]],dtype=float)
-    trainY = np.array([[1,1,1,1,0,0,0,0,0]],dtype=float)
+    trainX = np.array([[1,2,3,4,5,6,7,8,9],[1,2,3,4,5,6,7,8,9]],dtype=float).transpose()
+    trainY = np.array([[1,1,1,1,0,0,0,0,0]],dtype=float).transpose()
 
     bpNN = BP_NN(4,0.01,5000)
     bpNN.fit(trainX,trainY)
@@ -206,8 +219,8 @@ def test2(trainX,trainY):
     #trainX,trainY = datasets.make_moons(200,noise=0.2)
 
     #trainX,trainY = open('./make_moons_Data.txt','r').read()
-    trainX = np.array(trainX).transpose()
-    trainY = np.array([trainY])
+    trainX = np.array(trainX)
+    trainY = np.array([trainY]).transpose()
 
     weightHide_init = np.array([[0.00669191, 0.00896449],
  [0.00817253, 0.00233414],
@@ -219,7 +232,7 @@ def test2(trainX,trainY):
     bpNN = BP_NN(hideLNum=4,learn_rate=0.01,maxIter=5000)
 
     bpNN.initParas_custom(weightHide_init,weightOut_init) # isDefaultParas=True时，不需此条
-    bpNN.fit(trainX,trainY,isRandomParas=False)
+    bpNN.fit(trainX,trainY,isRandomParas=False)  # trainX.shape = (m,dim),trainY.shape = (m,1)
 
     # score
     print("accuracy:",bpNN.score(trainX,trainY))
@@ -247,4 +260,5 @@ def test3(trainX,trainY):
 trainX, trainY = datasets.make_moons(200, noise=0.2) # 自带标准化数据
 test2(trainX,trainY)  # 拟合率 0.98
 test3(trainX,trainY)  # 拟合率 0.865
+
 
