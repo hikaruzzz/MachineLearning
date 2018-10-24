@@ -1,0 +1,232 @@
+'''
+point discovery:
+.大量数据样本时准确率疯狂下降原因：逆传播时，dw,db都要 /m
+.maxIter>1w ，拟合情况才算真实
+.dZ1 = np.dot(w2.T,dz2) * g'(z1) 和g'(a1) 的区别 （吴恩达课程上是z1）
+
+record:
+.经过StandardScaler后，单隐层NN（4单元,iter=1w,learnRate=0.03)的准确率=0.9   对比sklearn的SVM,准确率=0.87
+.样本量增加（>1000）bpNN准确率保持0.87x,SVM开始降低
+'''
+
+# coding = 'utf-8'
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import datasets
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import train_test_split
+
+class DeepNN:
+    def __init__(self):
+        self.layerNum = 0 # 总层数（包括输入输出层）
+        self.n = [] # 每层的单元数（如 n[0] = 3 即第0层（输入层）单元数=3）
+        self.W = [] # 每层权值 （如 w[1] = np.array([n[2],n[1])) ,用appand添加
+        self.b = [] # 每层阈值 （如 b[1] = np.array([n1,1]) )
+        self.learnRate = 0
+        self.maxIter = 0
+
+
+    def setModel(self,listOfN,maxIter,learnRate):
+        # 设定层数和每层单元数,初始化w，b
+        # paras：listOfN（一个List，如[3,2,3,4,1]即输入层3dim，第一个隐层单元数2....第三个隐层单元数4，输出层1dim
+        self.layerNum = len(listOfN)
+        self.n = listOfN
+        self.maxIter = maxIter
+        self.learnRate = learnRate
+
+        # 初始化w,b
+        self.W.append(0) # w0不存在，0占用位置
+        self.b.append(0) # b0 不存在
+        for i in range(1,self.layerNum):
+            self.W.append(np.random.random([self.n[i],self.n[i-1]]) * 0.01)
+            self.b.append(np.zeros([self.n[i],1]))
+        '''w[4].shape = (n[4],n[3]) = (1,3) = 输出层'''
+        #print(self.w[4])
+        '''b[1].shape = (n[1],1) '''
+        #print(self.b[1])
+
+
+    def forwardP(self,trainX):
+        # 前传
+        # paras：trainX 传入训练集X，shape = （dim,m）
+        # return：
+        m = trainX.shape[1]
+        A = list(range(self.layerNum)) # A[0]即第1层的Input，即trainX。A[1]即第1层的Output
+        Z = list(range(self.layerNum)) # 用list存储np.array数据
+        A[0] = trainX # A[0] = trainX
+        for i in range(1,self.layerNum-1): # 注意此处for次数
+            # 第1到n-1层（所有隐层）
+            Z[i] = np.dot(self.W[i],A[i-1]) + self.b[i]
+            A[i] = self.ReLuFunc(Z[i])
+        # 输出层
+        Z[self.layerNum-1] = np.dot(self.W[self.layerNum-1], A[self.layerNum-2]) + self.b[self.layerNum-1]
+        A[self.layerNum-1] = self.sigmoidFunc(Z[self.layerNum-1])
+        '''Z[3].shape = (3,m)  Z[4].shape = (1,m) = 输出 '''
+        #print(Z[3].shape)
+
+        return Z,A,m
+
+
+    def backwardP(self,Z,A,m,trainY):
+        # 逆传
+        # paras:
+        # return:
+        dZ = list(range(self.layerNum)) # 0 -> 4    = 5
+        dW = list(range(self.layerNum))
+        db = list(range(self.layerNum))
+
+        outN = self.layerNum - 1 # 输出层的序数（如总5层，输出层为4，输入层为0）
+        # 输出层 回传
+        dZ[outN] = (A[outN] - trainY)
+        dW[outN] = np.dot(dZ[outN], A[outN-1].transpose()) / m
+        db[outN] = np.sum(dZ[outN], axis=1, keepdims=True) / m
+
+        for i in range(outN-1,0,-1): # n-1 层到 1层（第0层不用算）
+            # 隐层 回传
+            dZ[i] = np.dot(self.W[i+1].transpose(),dZ[i+1]) * self.ReLuPrime(Z[i])
+            # dot(W[4].T,dZ[4]) =>(3,1)和(1,m)=(3,m) 扩回上一层的shape
+            dW[i] = np.dot(dZ[i],A[i-1].transpose())/m
+            db[i] = np.sum(dZ[i],axis=1,keepdims=True)/m
+        '''dW[1].shape = (n[1],trainX_dim) '''
+        #print("xx",dW[1].shape)
+
+        return dW,db
+
+
+    def updateParas(self,dW,db):
+        # 更新函数
+        for i in range(self.layerNum):
+            self.W[i] -= self.learnRate * dW[i]
+            self.b[i] -= self.learnRate * db[i]
+
+
+    def fit(self,trainX,trainY):
+        # 训练函数
+        # paras: trainX (shape= (dim,m)) , trainY (shape = (dim,m))
+
+        #print("s1", self.W[2])
+        for i in range(self.maxIter):
+            Z,A,m = self.forwardP(trainX)
+            dW,db = self.backwardP(Z,A,m,trainY)
+            self.updateParas(dW,db)
+        #print("s2",self.W[2])
+
+
+    def predict(self,x):
+        # predict
+        # paras：x (shape = (dim,m)
+        # return: A[self.layerNum] 即输出层的A值
+        Z,A,m = self.forwardP(x)
+
+        for i in range(A[self.layerNum-1].shape[0]):
+            for j in range(A[self.layerNum-1].shape[1]):
+                if A[self.layerNum-1][i][j] >= 0.5:
+                    A[self.layerNum - 1][i][j] = 1
+                else:
+                    A[self.layerNum - 1][i][j] = 0
+
+        return A[self.layerNum - 1]
+
+
+    def score(self,testX,testY):
+        # calc accuracy
+        # paras: y
+        # return: score
+        m = testX.shape[1]
+        coutR = 0. # 正确个数
+        preY = self.predict(testX)
+
+        for i in range(m):
+            if preY[0][i] == testY[0][i]:
+                coutR += 1
+
+        return coutR/m
+
+
+    def ReLuFunc(self,x):
+        for i in range(x.shape[0]):
+            for j in range(x.shape[1]):
+                if x[i][j] >= 0:
+                    pass
+                else:
+                    x[i][j] = 0
+        x = 1.0/(1 + np.exp(- x))
+
+        return x
+
+
+    def ReLuPrime(self,x):
+        # ReLu 导数
+        for i in range(x.shape[0]):
+            for j in range(x.shape[1]):
+                if x[i][j] >= 0:
+                    x[i][j] = 1
+                else:
+                    x[i][j] = 0
+        x = x - np.power(x,2)
+        return x
+
+    def sigmoidFunc(self,x):
+        # sigmoid函数
+        # return 格式相同
+
+        return 1.0 / (1 + np.exp(-x))
+
+    def sigmoidPrime(self,x):
+        # sigmoid 导数
+
+        return x - np.power(x, 2)
+
+
+def test2(trainX,trainY,testX,testY):
+    # 模型试验
+
+    # 归一化
+    ssX = StandardScaler()
+    trainX = ssX.fit_transform(trainX)
+    testX = ssX.fit_transform(testX)
+
+    # 转置
+    trainX = np.array(trainX).transpose()
+    trainY = np.array([trainY])
+    testX = np.array(testX).transpose()
+    testY = np.array([testY])
+
+    # fit
+    deepNN = DeepNN()
+    deepNN.setModel([2,4,1],maxIter=10000,learnRate=0.03)
+    deepNN.fit(trainX,trainY)
+    #print("predict",deepNN.predict(trainX)[0:50])
+    #print("trainY",trainY[0:50])
+    print("score:",deepNN.score(testX,testY))
+
+
+def test3(trainX,trainY,testX,testY):
+    # 用sklearn.SGDclasser train
+    # 用sklearn.datasets.make_moons制造的训练集
+    #trainX, trainY = datasets.make_moons(200, noise=0.2) # 自带标准化数据
+
+    # 标准化
+    ssX = StandardScaler()
+    trainX = ssX.fit_transform(trainX)
+    testX = ssX.fit_transform(testX)
+
+    # fit
+    sgdC = SGDClassifier()  # SVM，logistic regression
+    sgdC.fit(trainX,trainY)  # sklearn的fit需要Y为列向量，X为行向量shape（样本数，特征数）
+    print("accuracy:",sgdC.score(testX,testY))
+
+
+# make trainData
+trainX, trainY = datasets.make_moons(1000, noise=0.02) # 自带标准化数据
+
+# split
+trainX,testX,trainY,testY = train_test_split(trainX,trainY,test_size=0.25,random_state=33)
+
+test2(trainX,trainY,testX,testY)  # 拟合率
+# test3(trainX,trainY,testX,testY)  # 拟合率
+
+
+
+
