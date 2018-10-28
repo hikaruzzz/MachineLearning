@@ -1,21 +1,28 @@
 '''
 point discovery:
 .大量数据样本时准确率疯狂下降原因：逆传播时，dw,db都要 /m
-.maxIter>1w ，拟合情况才算真实
-.dZ1 = np.dot(w2.T,dz2) * g'(z1) 和g'(a1) 的区别 （吴恩达课程上是z1）
+.模型改动：
+    吴恩达深度学习的模型中，输出层 回传：[dZ = A - y]
+    更改为：[dZ = (A - y) * g'(A)]    准确率提高0.03左右 （根据链式法则推导）
+.留意dZ1 = np.dot(w2.T,dz2) * g'(z1)   和* g'(a1) 的区别 （吴恩达课程上是z1）
+.增加ReLu函数和导数的实现，计算时间减少近一半
 
 record:
 .经过StandardScaler后，单隐层NN（4单元,iter=1w,learnRate=0.03)的准确率=0.9   对比sklearn的SVM,准确率=0.87
 .样本量增加（>1000）bpNN准确率保持0.87x,SVM开始降低
+.改用ReLu 后，iter=1w,单层4单元
+
 '''
 
 # coding = 'utf-8'
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import train_test_split
+
 
 class DeepNN:
     def __init__(self):
@@ -50,7 +57,7 @@ class DeepNN:
     def forwardP(self,trainX):
         # 前传
         # paras：trainX 传入训练集X，shape = （dim,m）
-        # return：
+        # return：Z,A,m
         m = trainX.shape[1]
         A = list(range(self.layerNum)) # A[0]即第1层的Input，即trainX。A[1]即第1层的Output
         Z = list(range(self.layerNum)) # 用list存储np.array数据
@@ -78,8 +85,9 @@ class DeepNN:
 
         outN = self.layerNum - 1 # 输出层的序数（如总5层，输出层为4，输入层为0）
         # 输出层 回传
-        dZ[outN] = (A[outN] - trainY)
+        dZ[outN] = (A[outN] - trainY) * self.sigmoidPrime(A[outN])
         dW[outN] = np.dot(dZ[outN], A[outN-1].transpose()) / m
+        #print(A[outN-1].transpose().shape,"xxxxx")
         db[outN] = np.sum(dZ[outN], axis=1, keepdims=True) / m
 
         for i in range(outN-1,0,-1): # n-1 层到 1层（第0层不用算）
@@ -104,7 +112,6 @@ class DeepNN:
     def fit(self,trainX,trainY):
         # 训练函数
         # paras: trainX (shape= (dim,m)) , trainY (shape = (dim,m))
-
         #print("s1", self.W[2])
         for i in range(self.maxIter):
             Z,A,m = self.forwardP(trainX)
@@ -118,7 +125,6 @@ class DeepNN:
         # paras：x (shape = (dim,m)
         # return: A[self.layerNum] 即输出层的A值
         Z,A,m = self.forwardP(x)
-
         for i in range(A[self.layerNum-1].shape[0]):
             for j in range(A[self.layerNum-1].shape[1]):
                 if A[self.layerNum-1][i][j] >= 0.5:
@@ -136,7 +142,6 @@ class DeepNN:
         m = testX.shape[1]
         coutR = 0. # 正确个数
         preY = self.predict(testX)
-
         for i in range(m):
             if preY[0][i] == testY[0][i]:
                 coutR += 1
@@ -145,26 +150,17 @@ class DeepNN:
 
 
     def ReLuFunc(self,x):
-        for i in range(x.shape[0]):
-            for j in range(x.shape[1]):
-                if x[i][j] >= 0:
-                    pass
-                else:
-                    x[i][j] = 0
-        x = 1.0/(1 + np.exp(- x))
+        # ReLu 函数
+        x = (np.abs(x) + x) /2.0
 
         return x
 
 
     def ReLuPrime(self,x):
         # ReLu 导数
-        for i in range(x.shape[0]):
-            for j in range(x.shape[1]):
-                if x[i][j] >= 0:
-                    x[i][j] = 1
-                else:
-                    x[i][j] = 0
-        x = x - np.power(x,2)
+        x[x <= 0] = 0
+        x[x > 0] = 1
+
         return x
 
     def sigmoidFunc(self,x):
@@ -195,8 +191,10 @@ def test2(trainX,trainY,testX,testY):
 
     # fit
     deepNN = DeepNN()
-    deepNN.setModel([2,4,1],maxIter=10000,learnRate=0.03)
+    deepNN.setModel([2,3,1],maxIter=10000,learnRate=0.03)
     deepNN.fit(trainX,trainY)
+
+    # show
     #print("predict",deepNN.predict(trainX)[0:50])
     #print("trainY",trainY[0:50])
     print("score:",deepNN.score(testX,testY))
@@ -224,8 +222,10 @@ trainX, trainY = datasets.make_moons(1000, noise=0.02) # 自带标准化数据
 # split
 trainX,testX,trainY,testY = train_test_split(trainX,trainY,test_size=0.25,random_state=33)
 
-test2(trainX,trainY,testX,testY)  # 拟合率
-# test3(trainX,trainY,testX,testY)  # 拟合率
+timeStart = time.time()
+test2(trainX,trainY,testX,testY)  # testData 拟合率 0.95
+test3(trainX,trainY,testX,testY)  # 拟合率
+print("time used:",time.time()-timeStart)
 
 
 
