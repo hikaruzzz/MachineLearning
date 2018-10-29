@@ -146,7 +146,7 @@ class BP_NN:
 
         # count
         for i in range(m):
-            if preY[i] == np.sum(testY[i]):
+            if preY[i] == testY[i]:
                 coutR += 1
 
         return coutR/m
