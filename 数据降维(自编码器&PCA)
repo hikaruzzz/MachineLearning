@@ -1,0 +1,203 @@
+'''
+数据降维，神经网络降维法 和 PCA降维法  (用LinearSVC进行手写字体识别）
+
+自编码器：1.输入输出维度相同，神经网络中间层（dim < 输入维）作为降维输出
+point discovery:
+
+record:
+.单隐层NN，8x8维转20维，score=0.965，（iter=1w,learnRate=0.03) ，timeused=1min
+.PCA ，8x8转20维， score=0.959 ,timeused = -1s
+
+'''
+
+# coding = 'utf-8'
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import load_digits
+from sklearn.svm import LinearSVC
+from sklearn.decomposition import PCA
+
+np.set_printoptions(threshold=np.inf) # array全显示
+
+
+class DeepNN:
+    def __init__(self):
+        self.layerNum = 0 # 总层数（包括输入输出层）
+        self.n = [] # 每层的单元数（如 n[0] = 3 即第0层（输入层）单元数=3）
+        self.W = [] # 每层权值 （如 w[1] = np.array([n[2],n[1])) ,用appand添加
+        self.b = [] # 每层阈值 （如 b[1] = np.array([n1,1]) )
+        self.learnRate = 0
+        self.maxIter = 0
+
+
+    def setModel(self,listOfN,maxIter,learnRate):
+        # 设定层数和每层单元数,初始化w，b
+        # paras：listOfN（一个List，如[3,2,3,4,1]即输入层3dim，第一个隐层单元数2....第三个隐层单元数4，输出层1dim
+        self.layerNum = len(listOfN)
+        self.n = listOfN
+        self.maxIter = maxIter
+        self.learnRate = learnRate
+
+        # 初始化w,b
+        self.W.append(0) # w0不存在，0占用位置
+        self.b.append(0) # b0 不存在
+        for i in range(1,self.layerNum):
+            self.W.append(np.random.random([self.n[i],self.n[i-1]]) * 0.01)
+            self.b.append(np.zeros([self.n[i],1]))
+        '''w[4].shape = (n[4],n[3]) = (1,3) = 输出层'''
+        #print(self.W[4])
+        '''b[1].shape = (n[1],1) '''
+        #print(self.b[1])
+
+
+    def forwardP(self,trainX):
+        # 前传
+        # paras：trainX 传入训练集X，shape = （dim,m）
+        # return：Z,A,m
+        m = trainX.shape[1]
+        A = list(range(self.layerNum)) # A[0]即第1层的Input，即trainX。A[1]即第1层的Output
+        Z = list(range(self.layerNum)) # 用list存储np.array数据
+        A[0] = trainX # A[0] = trainX
+        for i in range(1,self.layerNum-1): # 注意此处for次数
+            # 第1到n-1层（所有隐层）
+            Z[i] = np.dot(self.W[i],A[i-1]) + self.b[i]
+            A[i] = self.ReLuFunc(Z[i])
+        # 输出层
+
+        Z[self.layerNum-1] = np.dot(self.W[self.layerNum-1], A[self.layerNum-2]) + self.b[self.layerNum-1]
+        A[self.layerNum-1] = self.sigmoidFunc(Z[self.layerNum-1])
+        '''Z[3].shape = (3,m)  Z[4].shape = (1,m) = 输出 '''
+        #print(Z[3].shape)
+
+        return Z,A,m
+
+
+    def backwardP(self,Z,A,m,trainY):
+        # 逆传
+        # paras:
+        # return:
+        dZ = list(range(self.layerNum)) # 0 -> 4    = 5
+        dW = list(range(self.layerNum))
+        db = list(range(self.layerNum))
+
+        outN = self.layerNum - 1 # 输出层的序数（如总5层，输出层为4，输入层为0）
+        # 输出层 回传
+        dZ[outN] = (A[outN] - trainY) * self.sigmoidPrime(A[outN])
+        dW[outN] = np.dot(dZ[outN], A[outN-1].transpose()) / m
+        #print(A[outN-1].transpose().shape,"xxxxx")
+        db[outN] = np.sum(dZ[outN], axis=1, keepdims=True) / m
+
+        for i in range(outN-1,0,-1): # n-1 层到 1层（第0层不用算）
+            # 隐层 回传
+            dZ[i] = np.dot(self.W[i+1].transpose(),dZ[i+1]) * self.ReLuPrime(Z[i])
+            # dot(W[4].T,dZ[4]) =>(3,1)和(1,m)=(3,m) 扩回上一层的shape
+            dW[i] = np.dot(dZ[i],A[i-1].transpose())/m
+            db[i] = np.sum(dZ[i],axis=1,keepdims=True)/m
+        '''dW[1].shape = (n[1],trainX_dim) '''
+        #print("xx",dW[1].shape)
+
+        return dW,db
+
+
+    def updateParas(self,dW,db):
+        # 更新函数
+        for i in range(self.layerNum):
+            self.W[i] -= self.learnRate * dW[i]
+            self.b[i] -= self.learnRate * db[i]
+
+
+    def fit(self,trainX,trainY):
+        # 训练函数
+        # paras: trainX (shape= (dim,m)) , trainY (shape = (dim,m))
+        #print("s1", self.W[2])
+        for i in range(self.maxIter):
+            Z,A,m = self.forwardP(trainX)
+            dW,db = self.backwardP(Z,A,m,trainY)
+            self.updateParas(dW,db)
+        #print("s2",self.W[2])
+
+
+    def getA(self,x):
+
+        Z, A, m = self.forwardP(x)
+        return A
+
+
+    def ReLuFunc(self,x):
+        # ReLu 函数
+        x = (np.abs(x) + x) /2.0
+
+        return x
+
+
+    def ReLuPrime(self,x):
+        # ReLu 导数
+        x[x <= 0] = 0
+        x[x > 0] = 1
+
+        return x
+
+    def sigmoidFunc(self,x):
+        # sigmoid函数
+        # return 格式相同
+
+        return 1.0 / (1 + np.exp(-x))
+
+    def sigmoidPrime(self,x):
+        # sigmoid 导数
+
+        return x - np.power(x, 2)
+
+
+def reduceDim(X,dim = 10):
+    # reduceDim
+    # paras: X (shape = (dim,m)),dim (target dim)
+    # return: result
+
+    # regular
+    ss = StandardScaler()
+    X = ss.fit_transform(X)
+
+    X = X.transpose()
+    # fit
+    hwnNN = DeepNN()
+    hwnNN.setModel([X.shape[0],dim,X.shape[0]],maxIter=20000,learnRate=0.03)
+    hwnNN.fit(X,X)
+
+
+    A = hwnNN.getA(X)
+    result = A[1].transpose()
+
+    return result
+
+
+def test1():
+    # get data
+    digits = load_digits()
+    trainX,testX,trainY,testY = train_test_split(digits.data,digits.target,test_size=0.25,random_state=33)
+
+    # reduce dim type = 1
+    trainX1 = reduceDim(trainX,dim = 20)
+    #testX = reduceDim(testX,dim = 20)
+
+    # reduce dim type = 2
+    estimator = PCA(n_components=20)
+    trainX2 = estimator.fit_transform(trainX)
+    #testX =estimator.transform(testX)
+
+
+    # fit by SVClinear
+    lsvc1 = LinearSVC()
+    lsvc1.fit(trainX1,trainY)
+    lsvc2 = LinearSVC()
+    lsvc2.fit(trainX2,trainY)
+
+    # score print
+    score1 = lsvc1.score(trainX1,trainY)
+    score2 = lsvc2.score(trainX2,trainY)
+    print("score of NN reduce dim:",score1)
+    print("score of PCA:",score2)
+
+
+test1()
