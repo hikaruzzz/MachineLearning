@@ -1,0 +1,96 @@
+'''
+hand writing num classifier
+tips:
+    weight[n].shape = (num_layer[n], num_layer[n-1])
+    dont't reshape data or argmax() between graph calculation(prefer preprocess all data before train model)
+    argmax(...,axis = 0 or 1)   0 is vertical calc, 1 is horizon calc
+    nan data: use log_softmax() or reduce learn_rate,like:0.001
+record:
+    22018.11.25:one hide layer,4 nerual，simple data:1300+，learn_rate=0.001,iter=10000,accuracy:0.869,time used(only CPU:E3 1230v2):13.2s
+'''
+# coding=utf-8
+
+import numpy as np
+import tensorflow as tf
+import time
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+
+
+time_start = time.time()
+def Change1to10(y):
+    # change the 1dim y data to 10dim
+    # y.shape = (m,), y_result.shape = (10,m)
+    y_result = np.zeros([10,len(y)])
+    for i in range(len(y)):
+        y_result[y[i]][i] = 1  # 第x个 -》 第i个的第x个=1
+    return y_result
+
+'paras set'
+learn_rate = 0.001
+max_iter = 10000
+dim_input = 64  # input layer num
+layer_1_num = 4  # hide layer num
+dim_output = 10  # output layer num
+init_paras_rate = 0.01  # rate of parameters initialization(weight)
+
+'train data create and preprocess'
+train_data = load_digits()
+# split data
+x_train,x_test,y_train_,y_test_ = train_test_split(train_data.data,train_data.target,test_size=0.25,random_state=33) # 【：500】
+# standard
+ss = StandardScaler()
+x_train = ss.fit_transform(x_train)
+x_test = ss.fit_transform(x_test)
+# transpose data to shape=(dim,m)
+x_train = x_train.transpose()
+x_test = x_test.transpose()
+y_train = Change1to10(y_train_)
+y_test = Change1to10(y_test_)
+
+'init paras'
+w1 = tf.Variable(tf.random_normal([layer_1_num,dim_input],dtype=tf.float32,mean=0.0,stddev=1.0,seed=1)*init_paras_rate)
+w2 = tf.Variable(tf.random_normal([dim_output,layer_1_num],dtype=tf.float32,mean=0.0,stddev=1.0,seed=1)*init_paras_rate)
+b1 = tf.Variable(tf.zeros([layer_1_num,1]))
+b2 = tf.Variable(tf.zeros([dim_output,1]))
+x = tf.placeholder(tf.float32)
+y_ = tf.placeholder(tf.float32)
+y_score_input = tf.placeholder(tf.float32)  # for accuracy calculation model
+
+'tensorflow model'
+# front
+z1 = tf.matmul(w1, x) + b1
+a = tf.nn.relu(z1)  # try relu_releas
+z2 = tf.matmul(w2, a) + b2
+
+# # loss model 2:(cross_entropy & softmax)
+# y = tf.nn.log_softmax(z2)
+# cross_entropy = -tf.reduce_sum(y_*tf.log(y))
+# fit_model = tf.train.GradientDescentOptimizer(learn_rate).minimize(cross_entropy)
+
+# loss model 1 (sigmoid & cross_entropy)
+loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=z2, labels=y_)  # logits:model predict y \ cross entropy way
+fit_model = tf.train.GradientDescentOptimizer(learn_rate).minimize(loss)
+
+# predict model
+y_predict = tf.to_float(tf.argmax(z2,axis=0))  # change 10dim to 1dim
+
+# score model
+correct_matrix = tf.equal(y_predict,y_score_input)
+score_prediction = tf.reduce_mean(tf.cast(correct_matrix,dtype=tf.float32))
+
+'fit'
+with tf.Session() as sess:
+    # init Variable
+    sess.run(tf.global_variables_initializer())
+
+    # train
+    for i in range(max_iter):
+        sess.run(fit_model,feed_dict={x:x_train,y_:y_train})
+
+    # predict and accuracy
+    print("w1:",sess.run(w2))
+    print("predict count:",len(sess.run(y_predict,feed_dict={x:x_train})))
+    print("score prediction:",sess.run(score_prediction,feed_dict={x:x_test,y_score_input:y_test_}))
+    print("time used:%f s"%(time.time()-time_start))
