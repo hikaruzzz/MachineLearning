@@ -9,7 +9,7 @@ point discovery:
 .增加ReLu函数和导数的实现，计算时间减少近一半
 
 record:
-.单隐层9单元：iter=3w,score=0.64
+.单隐层9单元，样本数：1300+，iter=3w,score=0.64 （大量样本的精准度下降问题？）
 
 '''
 
