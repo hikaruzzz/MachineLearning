@@ -3,7 +3,7 @@ bp_nn v4.0
 描述：单隐层神经网络，批量梯度下降，8x8像素16位手写数字识别
 
 ===========2018年11月25日 增加：
-补充记录：单隐层，9单元，样本数：500，learn_rate=0.03,iteration=10000,accuracy=0.952,timeused(only CPU:E3 1230v2)=5.1s
+补充记录：单隐层，9单元，样本数：500（reduce as increasing of train data)，learn_rate=0.03,iteration=10000,accuracy=0.952,timeused(only CPU:E3 1230v2)=5.1s
 
 ===========2018年10月16日 增加：
 超参数设定（经验值）：   隐层神经元个数：9，学习率：0.03，迭代数：5000（1w 迭代，400样本，反而掉了0.02准确率？？？）
